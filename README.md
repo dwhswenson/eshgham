@@ -1,4 +1,4 @@
-# ghadase
+# ghadash
 
 *A dashboard to check on the status of your neglected GitHub Actions
 Workflows.*
@@ -28,3 +28,39 @@ python -m pip install ghadash
 ## Usage
 
 
+## YAML config
+
+The YAML config is a mapping of repository names to lists of workflow YAML file
+names. It also allows (optionally) the key `token`, which would have the value
+of your GitHub personal access token.
+
+Here's my config file, for illustration (obviously, my GitHub token is removed).
+
+```yaml
+openpathsampling/openpathsampling:
+  - tests.yml
+  - check-openmm-rc.yml
+openpathsampling/openpathsampling-cli:
+  - test-suite.yml
+openpathsampling/ops_tutorial:
+  - ci.yml
+openpathsampling/ops_additional_examples:
+  - tests.yml
+dwhswenson/contact_map:
+  - unit-tests.yml
+dwhswenson/autorelease:
+  - unit-tests.yml
+dwhswenson/ops-storage-notebooks:
+  - tests.yml
+dwhswenson/conda-rc-check:
+  - example_use.yml
+dwhswenson/plugcli:
+  - ci.yml
+# I'm okay with these being inactive, but maybe I'll activate them again
+# someday
+#dwhswenson/ghcontribs:
+  #- tests.yml
+#dwhswenson/fabulous-paths:
+  #- tests.yml
+token: ghp_<blahblahblah>
+```
