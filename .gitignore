@@ -1,3 +1,4 @@
+*.swp
 config.yaml
 _installed_version.py
 

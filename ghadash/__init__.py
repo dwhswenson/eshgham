@@ -11,6 +11,15 @@ import github
 import yaml
 from colorama import Fore, colorama_text
 
+__all__ = [
+    "Status", "Result", "get_workflow_result", "get_all_workflow_results",
+    "results_from_result_list", "report_results_summary",
+    "attempt_to_reactivate", "output_link_to_inactive",
+    "output_link_to_error", "get_token", "make_parser", "main"
+]
+
+from .version import short_version
+
 class Status(enum.Enum):
     OK = Fore.GREEN
     INACTIVATED = Fore.YELLOW
@@ -117,9 +126,29 @@ def get_token(arg_token, workflow_dict):
     return token
 
 def make_parser():
-    parser = argparse.ArgumentParser()
-    parser.add_argument('yaml_config', type=str)
-    parser.add_argument('--token', type=str)
+    parser = argparse.ArgumentParser(
+        prog="ghadash",
+        description=("A dashboard for your neglected GitHub Actions "
+                     f"workflows. Version {short_version}.")
+    )
+    parser.add_argument(
+        'workflows_yaml', type=str,
+        help=(
+            "Workflows in YAML format. This is provided with repository "
+            "'owner/repo_name' as a string key, and workflow filename as "
+            "the value. The special key 'token' may be used for the "
+            "GitHub personal access token."
+        )
+    )
+    parser.add_argument(
+        '--token', type=str,
+        help=(
+            "GitHub personal access token. May also be provided using "
+            "'token' as a key in the workflow YAML file, or in the "
+            "environment variable `GITHUB_TOKEN`. The command argument "
+            "takes precedence, followed by the YAML specification."
+        )
+    )
     return parser
 
 def main():

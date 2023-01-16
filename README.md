@@ -17,16 +17,37 @@ ghadash is a little command line utility to check on your scheduled workflows.
 
 Here's what it looks like in practice:
 
-...
+![The command ghadash config.yaml tells if your GitHub actions are inactive or
+failing](ghadash.gif)
 
 ## Installation
 
-```
+Coming soon to a Python Package Index near you!
+
+<!-- 
 python -m pip install ghadash
-```
+-->
 
 ## Usage
 
+```text
+usage: ghadash [-h] [--token TOKEN] workflows_yaml
+
+A dashboard for your neglected GitHub Actions workflows. Version 0.0.1.dev0.
+
+positional arguments:
+  workflows_yaml  Workflows in YAML format. This is provided with repository
+                  'owner/repo_name' as a string key, and workflow filename as
+                  the value. The special key 'token' may be used for the
+                  GitHub personal access token.
+
+options:
+  -h, --help      show this help message and exit
+  --token TOKEN   GitHub personal access token. May also be provided using
+                  'token' as a key in the workflow YAML file, or in the
+                  environment variable `GITHUB_TOKEN`. The command argument
+                  takes precedence, followed by the YAML specification.
+```
 
 ## YAML config
 
