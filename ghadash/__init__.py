@@ -154,7 +154,7 @@ def make_parser():
 def main():
     parser = make_parser()
     args = parser.parse_args()
-    with open(args.yaml_config) as file:
+    with open(args.workflows_yaml) as file:
         workflow_dict = yaml.load(file, Loader=yaml.FullLoader)
 
     token = get_token(args.token, workflow_dict)
@@ -176,6 +176,9 @@ def main():
 
     if failures := results[Status.FAILED]:
         output_link_to_error(failures)
+
+    if failures or inactive:
+        exit(1)
 
 
 if __name__ == "__main__":

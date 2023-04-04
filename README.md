@@ -3,13 +3,16 @@
 *A dashboard to check on the status of your neglected GitHub Actions
 Workflows.*
 
-Do you have a lot of GitHub repositories? Things you where you like to keep the
-projects alive, even if they aren't very active?
+Do you maintain a lot of GitHub repositories? Projects you want to keep alive,
+even if they aren't very active?
 
 Do you worry that you'll miss one of the warning emails GitHub sends you when a
 scheduled workflow becomes inactive? Have you missed them before, only
 discovering that CI hadn't been running for months after a user complained
 about incompatibility with a new release of a dependency?
+
+Do you worry that a colleague may be responsible for the latest merge, and
+could be ignoring notifications of failing CI?
 
 **Then ghadash is for you!**
 
