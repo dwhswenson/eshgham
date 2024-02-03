@@ -1,7 +1,8 @@
-# ghadash
+# ESHGHAM
 
-*A dashboard to check on the status of your neglected GitHub Actions
-Workflows.*
+*The Executive Summarizer of Health for GitHub Actions Monitoring (ESHGHAM,
+which is also a Farsi term of endearment translating as "my love") is a
+dashboard to check on the status of your neglected GitHub Actions.*
 
 Do you maintain a lot of GitHub repositories? Projects you want to keep alive,
 even if they aren't very active?
@@ -14,9 +15,9 @@ about incompatibility with a new release of a dependency?
 Do you worry that a colleague may be responsible for the latest merge, and
 could be ignoring notifications of failing CI?
 
-**Then ghadash is for you!**
+**Then ESGHAM is for you!**
 
-ghadash is a little command line utility to check on your scheduled workflows.
+ESHGHAM is a little command line utility to check on your scheduled workflows.
 
 Here's what it looks like in practice:
 
@@ -34,7 +35,7 @@ python -m pip install ghadash
 ## Usage
 
 ```text
-usage: ghadash [-h] [--token TOKEN] workflows_yaml
+usage: eshgham [-h] [--token TOKEN] workflows_yaml
 
 A dashboard for your neglected GitHub Actions workflows. Version 0.0.1.dev0.
 
