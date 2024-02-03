@@ -127,9 +127,12 @@ def get_token(arg_token, workflow_dict):
 
 def make_parser():
     parser = argparse.ArgumentParser(
-        prog="ghadash",
-        description=("A dashboard for your neglected GitHub Actions "
-                     f"workflows. Version {short_version}.")
+        prog="eshgham",
+        description=(
+            "ESHGHAM: The Executive Summarizer of Health for GitHub "
+            "Actions Monitoring. "
+            "A dashboard for your neglected GitHub Actions "
+            f"workflows. Version {short_version}.")
     )
     parser.add_argument(
         'workflows_yaml', type=str,
