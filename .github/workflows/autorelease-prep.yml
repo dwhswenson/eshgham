@@ -13,7 +13,7 @@ defaults:
 
 jobs:
   deploy_testpypi:
-    if: ${{ github.repository == 'dwhswenson/ghadash' }}
+    if: ${{ github.repository == 'dwhswenson/eshgham' }}
     runs-on: ubuntu-latest
     name: "Deployment test"
     steps:
@@ -49,7 +49,7 @@ jobs:
           repository_url: https://test.pypi.org/legacy/
         name: "Deploy to testpypi"
   test_testpypi:
-    if: ${{ github.repository == 'dwhswenson/ghadash' }}
+    if: ${{ github.repository == 'dwhswenson/eshgham' }}
     runs-on: ubuntu-latest
     name: "Test deployed"
     needs: deploy_testpypi

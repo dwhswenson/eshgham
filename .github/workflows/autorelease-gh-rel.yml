@@ -9,7 +9,7 @@ on:
 
 jobs:
   release-gh:
-    if: ${{ github.repository == 'dwhswenson/ghadash' }}
+    if: ${{ github.repository == 'dwhswenson/eshgham' }}
     runs-on: ubuntu-latest
     name: "Cut release"
     steps:

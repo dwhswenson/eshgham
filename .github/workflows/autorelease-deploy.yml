@@ -7,7 +7,7 @@ on:
 
 jobs:
   deploy_pypi:
-    if: ${{ github.repository == 'dwhswenson/ghadash' }}
+    if: ${{ github.repository == 'dwhswenson/eshgham' }}
     runs-on: ubuntu-latest
     name: "Deploy to PyPI"
     steps:
