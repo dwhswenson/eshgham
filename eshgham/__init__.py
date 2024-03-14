@@ -36,9 +36,12 @@ class Result(typing.NamedTuple):
 
     @property
     def output_url(self):
+        """URL for last run. For inactive workflow, URL of workflow"""
         if self.status is not Status.INACTIVATED:
             return self.last_scheduled_run.html_url
 
+        # unfortuately, we kind of have to guess here; the URL we want isn't
+        # included in API information for inactive workflows
         html_url = self.workflow.html_url
         repo = self.repo
         start = f"https://github.com/{repo}/blob"
@@ -52,14 +55,13 @@ class Result(typing.NamedTuple):
 
         return url
 
-    def output_line(self):
-        text = {Status.OK: "OK", Status.INACTIVATED: "INACTIVE",
-                Status.FAILED: "FAIL"}[self.status]
-        stylized =f"{self.status.value}{text}{Fore.RESET}"
-        return f"{self.repo}: {self.workflow_name}: {stylized}"
 
-
-def get_workflow_result(repo, workflow_name):
+def get_workflow_result(
+    repo: github.Repository.Repository,
+    workflow_name: str
+):
+    """Create :class:`.Result` for a single workflow.
+    """
     workflow = repo.get_workflow(workflow_name)
     if workflow.state != "active":
         status = Status.INACTIVATED
@@ -79,45 +81,10 @@ def get_workflow_result(repo, workflow_name):
         last_scheduled_run=last_scheduled_run
     )
 
-def get_all_workflow_results(gh, workflow_dict):
-    for repo_name, workflow_list in workflow_dict.items():
-        repo = gh.get_repo(repo_name)
-        for workflow_name in workflow_list:
-            result = get_workflow_result(repo, workflow_name)
-            yield result
-
-def results_from_result_list(result_list):
-    results = {Status.OK: [], Status.INACTIVATED: [], Status.FAILED: []}
-    for result in result_list:
-        results[result.status].append(result)
-    return results
-
-
-def report_results_summary(results):
-    total = sum(len(ll) for ll in results.values())
-    print(f"\nChecked {total} workflows. "
-          f"{Status.OK.value}{len(results[Status.OK])} passing. {Fore.RESET}"
-          f"{Status.INACTIVATED.value}{len(results[Status.INACTIVATED])} "
-          f"inactive.{Fore.RESET} "
-          f"{Status.FAILED.value}{len(results[Status.FAILED])} "
-          f"failing.{Fore.RESET}")
 
 def attempt_to_reactivate(result):
     ...
 
-def output_link_to_inactive(inactives):
-    # unfortuately, we kind of have to guess here; the URL we want isn't
-    # included in API information
-    print("\nLINKS TO INACTIVE WORKFLOWS")
-    for result in inactives:
-        print(f"* {result.repo}:{result.workflow_name} page:\n"
-              f"{result.output_url}")
-
-def output_link_to_error(failed):
-    print("\nLINKS TO FAILED RUNS")
-    for result in failed:
-        print(f"* {result.repo}:{result.workflow_name} failure: "
-              f"\n  {result.output_url}")
 
 def get_token(arg_token, workflow_dict):
     # order of precedence (first listed trumps anything below)
@@ -168,45 +135,152 @@ def make_parser():
     )
     return parser
 
-def output_color(result_iterator):
-    result_list = []
-    for result in result_iterator:
-        result_list.append(result)
-        with colorama_text():
-            print(result.output_line())
 
-    results = results_from_result_list(result_list)
-    report_results_summary(results)
+class Outputter:
+    """Abstract base for output handling with the :class:`.Harness`
+    """
+    def before_any(self):
+        return None
 
-    if inactives := results[Status.INACTIVATED]:
-        output_link_to_inactive(inactives)
-        ... # TODO: attempt to reactivate
+    def before_repo(self, repo, workflow_names):
+        return None
 
-    if failures := results[Status.FAILED]:
-        output_link_to_error(failures)
+    def before_workflow(self, repo, workflow_name):
+        return None
 
-    if failures or inactive:
-        return 1
+    def after_workflow(self, result):
+        return None
 
-    return 0
+    def after_repo(self, results):
+        return None
+
+    def after_all(self, results):
+        return None
+
+    def with_sorted_results(self, sorted_results):
+        return None
 
 
-def output_json(result_iterator):
-    results = results_from_result_list(list(result_iterator))
-    def workflow_info(workflow):
-        return {
-            'repo': workflow.repo,
-            'workflow_name': workflow.workflow_name,
-            'url': workflow.output_url,
+class Harness:
+    """Generic harness to loop over all workflows in a workflow dict.
+    """
+    def __init__(self, outputters: typing.Iterable[Outputter]):
+        self.outputters = outputters
+
+    def __call__(
+        self,
+        gh: github.Github,
+        workflow_dict: dict[str, list[str]]
+    ):
+        """
+        """
+        for out in self.outputters:
+            out.before_any()
+
+        results = []
+
+        for repo_name, workflow_list in workflow_dict.items():
+            for out in self.outputters:
+                out.before_repo(repo_name, workflow_list)
+
+            repo = gh.get_repo(repo_name)
+            repo_results = []
+
+            for workflow_name in workflow_list:
+                for out in self.outputters:
+                    out.before_workflow(repo_name, workflow_name)
+
+                result = get_workflow_result(repo, workflow_name)
+
+                for out in self.outputters:
+                    out.after_workflow(result)
+
+                repo_results.append(result)
+
+            for out in self.outputters:
+                out.after_repo(repo_results)
+
+            results.extend(repo_results)
+
+        for out in self.outputters:
+            out.after_all(results)
+
+        sorted_results = {Status.OK: [], Status.INACTIVATED: [],
+                          Status.FAILED: []}
+        for res in results:
+            sorted_results[res.status].append(res)
+
+        for out in self.outputters:
+            out.with_sorted_results(sorted_results)
+
+        return sorted_results
+
+
+class JSONOutputter(Outputter):
+    """Outputter for JSON output"""
+    def with_sorted_results(self, sorted_results):
+        def workflow_info(workflow):
+            return {
+                'repo': workflow.repo,
+                'workflow_name': workflow.workflow_name,
+                'url': workflow.output_url,
+            }
+
+        json_ready = {
+            status.name: [workflow_info(w) for w in workflows]
+            for status, workflows in sorted_results.items()
         }
+        print(json.dumps(json_ready))
 
-    json_ready = {
-        status.name: [workflow_info(w) for w in workflows]
-        for status, workflows in results.items()
-    }
 
-    print(json.dumps(json_ready))
+class ColorOutputter(Outputter):
+    """Outputter for colorama-based screen output"""
+    @staticmethod
+    def _wrap_status_color(text, status):
+        color = {
+            Status.OK: Fore.GREEN,
+            Status.INACTIVATED: Fore.YELLOW,
+            Status.FAILED: Fore.RED
+        }[status]
+        return f"{color}{text}{Fore.RESET}"
 
+    def after_workflow(self, result):
+        text = {
+            Status.OK: "OK",
+            Status.INACTIVATED: "INACTIVE",
+            Status.FAILED: "FAIL"
+        }[result.status]
+        stylized = self._wrap_status_color(text, result.status)
+        print(f"{result.repo}: {result.workflow_name}: {stylized}")
+
+    def with_sorted_results(self, sorted_results):
+        if inactives := sorted_results[Status.INACTIVATED]:
+            print("\nLINKS TO INACTIVE WORKFLOWS")
+            for result in inactives:
+                print(f"* {result.repo}:{result.workflow_name} page:\n"
+                      f"{result.output_url}")
+
+        if failures := sorted_results[Status.FAILED]:
+            print("\nLINKS TO FAILED RUNS")
+            for result in failures:
+                print(f"* {result.repo}:{result.workflow_name} failure: "
+                      f"\n  {result.output_url}")
+
+        total = sum(len(ll) for ll in sorted_results.values())
+
+        def _summary_string(sorted_results, status, text):
+            return self._wrap_status_color(
+                f"{len(sorted_results[status])} {text}.",
+                status
+            )
+
+        print(
+            f"\nChecked {total} workflows. "
+            + _summary_string(sorted_results, Status.OK, "passing") + " "
+            + _summary_string(sorted_results, Status.INACTIVATED,
+                              "inactive") + " "
+            + _summary_string(sorted_results, Status.FAILED, "failing")
+        )
 
 
 
@@ -219,14 +293,21 @@ def main():
     token = get_token(args.token, workflow_dict)
     gh = github.Github(token)
 
-    output = {
-        'json': output_json,
-        'color': output_color,
+    outputter = {
+        'json': JSONOutputter(),
+        'color': ColorOutputter(),
     }[args.runtype]
 
-    retval = output(get_all_workflow_results(gh, workflow_dict)) or 0
-    exit(retval)
+    runner = Harness([outputter])
+    sorted_results = runner(gh, workflow_dict)
+
+    # TODO: try to reactivate here?
+
+    if sorted_results[Status.FAILED] or sorted_results[Status.INACTIVATED]:
+        return 1
+
+    return 0
 
 
 if __name__ == "__main__":
-    main()
+    exit(main())
