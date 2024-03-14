@@ -2,10 +2,11 @@
 
 import argparse
 import enum
+import json
 import os
+import re
 import sys
 import typing
-import re
 
 import github
 import yaml
@@ -30,8 +31,26 @@ class Result(typing.NamedTuple):
     repo: str
     workflow_name: str
     status: Status
-    workflow: github.Workflow
-    last_scheduled_run: github.WorkflowRun
+    workflow: github.Workflow.Workflow
+    last_scheduled_run: github.WorkflowRun.WorkflowRun
+
+    @property
+    def output_url(self):
+        if self.status is not Status.INACTIVATED:
+            return self.last_scheduled_run.html_url
+
+        html_url = self.workflow.html_url
+        repo = self.repo
+        start = f"https://github.com/{repo}/blob"
+        end = self.workflow.path
+        if not (html_url.startswith(start) and html_url.endswith(end)):
+            url = ("Unable to get actions URL for action at:\n  "
+                   + html_url)
+        else:
+            file = end.split('/')[-1]
+            url = f"https://github.com/{repo}/actions/workflows/{file}"
+
+        return url
 
     def output_line(self):
         text = {Status.OK: "OK", Status.INACTIVATED: "INACTIVE",
@@ -91,23 +110,14 @@ def output_link_to_inactive(inactives):
     # included in API information
     print("\nLINKS TO INACTIVE WORKFLOWS")
     for result in inactives:
-        html_url = result.workflow.html_url
-        repo = result.repo
-        start = f"https://github.com/{repo}/blob"
-        end = result.workflow.path
-        if not (html_url.startswith(start) and html_url.endswith(end)):
-            url = ("Unable to get actions URL for action at:\n  "
-                   + html_url)
-        else:
-            file = end.split('/')[-1]
-            url = f"https://github.com/{repo}/actions/workflows/{file}"
-        print(f"* {result.repo}:{result.workflow_name} page:\n  {url}")
+        print(f"* {result.repo}:{result.workflow_name} page:\n"
+              f"{result.output_url}")
 
 def output_link_to_error(failed):
     print("\nLINKS TO FAILED RUNS")
     for result in failed:
         print(f"* {result.repo}:{result.workflow_name} failure: "
-              f"\n  {result.last_scheduled_run.html_url}")
+              f"\n  {result.output_url}")
 
 def get_token(arg_token, workflow_dict):
     # order of precedence (first listed trumps anything below)
@@ -152,20 +162,15 @@ def make_parser():
             "takes precedence, followed by the YAML specification."
         )
     )
+    parser.add_argument(
+        '--json', action="store_const", dest="runtype", const="json",
+        default="color"
+    )
     return parser
 
-def main():
-    parser = make_parser()
-    args = parser.parse_args()
-    with open(args.workflows_yaml) as file:
-        workflow_dict = yaml.load(file, Loader=yaml.FullLoader)
-
-    token = get_token(args.token, workflow_dict)
-    gh = github.Github(token)
-
-    # now we really get the main loop
+def output_color(result_iterator):
     result_list = []
-    for result in get_all_workflow_results(gh, workflow_dict):
+    for result in result_iterator:
         result_list.append(result)
         with colorama_text():
             print(result.output_line())
@@ -181,7 +186,46 @@ def main():
         output_link_to_error(failures)
 
     if failures or inactive:
-        exit(1)
+        return 1
+
+    return 0
+
+
+def output_json(result_iterator):
+    results = results_from_result_list(list(result_iterator))
+    def workflow_info(workflow):
+        return {
+            'repo': workflow.repo,
+            'workflow_name': workflow.workflow_name,
+            'url': workflow.output_url,
+        }
+
+    json_ready = {
+        status.name: [workflow_info(w) for w in workflows]
+        for status, workflows in results.items()
+    }
+
+    print(json.dumps(json_ready))
+
+
+
+
+def main():
+    parser = make_parser()
+    args = parser.parse_args()
+    with open(args.workflows_yaml) as file:
+        workflow_dict = yaml.load(file, Loader=yaml.FullLoader)
+
+    token = get_token(args.token, workflow_dict)
+    gh = github.Github(token)
+
+    output = {
+        'json': output_json,
+        'color': output_color,
+    }[args.runtype]
+
+    retval = output(get_all_workflow_results(gh, workflow_dict)) or 0
+    exit(retval)
 
 
 if __name__ == "__main__":
