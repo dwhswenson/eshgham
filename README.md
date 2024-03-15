@@ -24,33 +24,53 @@ Here's what it looks like in practice:
 ![The command ghadash config.yaml tells if your GitHub actions are inactive or
 failing](ghadash.gif)
 
+When workflows are failing or inactive, the summary ends with links for failing
+or inactive workflows. For failing workflows, this will link to a report of the
+failing workflow run. For inactive workflows, this will link to the workflow
+page where you can click the "Enable Workflow" button to reactivate it.
+
 ## Installation
 
-Coming soon to a Python Package Index near you!
-
-<!-- 
-python -m pip install ghadash
--->
+```text
+python -m pip install eshgham
+```
 
 ## Usage
 
 ```text
-usage: eshgham [-h] [--token TOKEN] workflows_yaml
+usage: eshgham [-h] [--token TOKEN] [--json] [--exit-code EXIT_CODE]
+               workflows_yaml
 
-A dashboard for your neglected GitHub Actions workflows. Version 0.0.1.dev0.
+ESHGHAM: The Executive Summarizer of Health for GitHub Actions Monitoring. A
+dashboard for your neglected GitHub Actions workflows. Version 0.1.0.dev0.
 
 positional arguments:
-  workflows_yaml  Workflows in YAML format. This is provided with repository
-                  'owner/repo_name' as a string key, and workflow filename as
-                  the value. The special key 'token' may be used for the
-                  GitHub personal access token.
+  workflows_yaml        Workflows in YAML format. This is provided with
+                        repository 'owner/repo_name' as a string key, and a
+                        list of workflow filenames as the value. The special
+                        key 'token' may be used for the GitHub personal access
+                        token.
 
 options:
-  -h, --help      show this help message and exit
-  --token TOKEN   GitHub personal access token. May also be provided using
-                  'token' as a key in the workflow YAML file, or in the
-                  environment variable `GITHUB_TOKEN`. The command argument
-                  takes precedence, followed by the YAML specification.
+  -h, --help            show this help message and exit
+  --token TOKEN         GitHub personal access token. May also be provided
+                        using 'token' as a key in the workflow YAML file, or
+                        in the environment variable `GITHUB_TOKEN`. The
+                        command argument takes precedence, followed bythe
+                        environment variable, and finally the YAML
+                        specification.
+  --json                Output as JSON instead of outputting to screen. The
+                        JSON object has keys 'OK', 'INACTIVATED', and
+                        'FAILED', with a list of workflows as values. Each
+                        workflow has the repository name, the workflow name,
+                        and a URL. For passing/failing workflows, this URL
+                        points to the last run. For inactive workflows, the
+                        URL points to the workflow itself.
+  --exit-code EXIT_CODE
+                        Exit code to return if there are any inactive/failing
+                        workflows. Runs with no inactive/failing workflows
+                        always exit with 0.
+
 ```
 
 ## YAML config
