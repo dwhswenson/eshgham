@@ -292,6 +292,7 @@ class ColorOutputter(Outputter):
 
 
 def main() -> int:
+    """Returns the exit code"""
     parser = make_parser()
     args = parser.parse_args()
     with open(args.workflows_yaml) as file:
