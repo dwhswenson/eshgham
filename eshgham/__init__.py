@@ -201,7 +201,7 @@ class Harness:
             repo_results = []
 
             for workflow_name in workflow_list:
-                sefl.out.before_workflow(repo_name, workflow_name)
+                self.out.before_workflow(repo_name, workflow_name)
                 result = get_workflow_result(repo, workflow_name)
                 self.out.after_workflow(result)
                 repo_results.append(result)
