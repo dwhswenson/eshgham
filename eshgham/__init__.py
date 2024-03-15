@@ -180,8 +180,8 @@ class Outputter:
 class Harness:
     """Generic harness to loop over all workflows in a workflow dict.
     """
-    def __init__(self, outputters: typing.Iterable[Outputter]):
-        self.outputters = outputters
+    def __init__(self, outputter: Outputter):
+        self.out = outputter
 
     def __call__(
         self,
@@ -190,45 +190,31 @@ class Harness:
     ):
         """
         """
-        for out in self.outputters:
-            out.before_any()
+        self.out.before_any()
 
         results = []
 
         for repo_name, workflow_list in workflow_dict.items():
-            for out in self.outputters:
-                out.before_repo(repo_name, workflow_list)
+            self.out.before_repo(repo_name, workflow_list)
 
             repo = gh.get_repo(repo_name)
             repo_results = []
 
             for workflow_name in workflow_list:
-                for out in self.outputters:
-                    out.before_workflow(repo_name, workflow_name)
-
+                self.out.before_workflow(repo_name, workflow_name)
                 result = get_workflow_result(repo, workflow_name)
-
-                for out in self.outputters:
-                    out.after_workflow(result)
-
+                self.out.after_workflow(result)
                 repo_results.append(result)
 
-            for out in self.outputters:
-                out.after_repo(repo_results)
-
+            self.out.after_repo(repo_results)
             results.extend(repo_results)
-
-        for out in self.outputters:
-            out.after_all(results)
-
+        self.out.after_all(results)
         sorted_results = {Status.OK: [], Status.INACTIVATED: [],
                           Status.FAILED: []}
         for res in results:
             sorted_results[res.status].append(res)
 
-        for out in self.outputters:
-            out.with_sorted_results(sorted_results)
-
+        self.out.with_sorted_results(sorted_results)
         return sorted_results
 
 
@@ -314,7 +300,7 @@ def main() -> int:
         'color': ColorOutputter(),
     }[args.runtype]
 
-    runner = Harness([outputter])
+    runner = Harness(outputter)
     sorted_results = runner(gh, workflow_dict)
 
     # TODO: try to reactivate here?
