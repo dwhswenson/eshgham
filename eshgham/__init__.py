@@ -141,6 +141,14 @@ def make_parser():
             "For inactive workflows, the URL points to the workflow itself."
         )
     )
+    parser.add_argument(
+        '--exit-code', type=int, default=1,
+        help=(
+            "Exit code to return if there are any inactive/failing "
+            "workflows. Runs with no inactive/failing workflows always "
+            "exit with 0."
+        )
+    )
     return parser
 
 
@@ -312,6 +320,6 @@ def main() -> int:
     # TODO: try to reactivate here?
 
     if sorted_results[Status.FAILED] or sorted_results[Status.INACTIVATED]:
-        return 1
+        return args.exit_code
 
     return 0
