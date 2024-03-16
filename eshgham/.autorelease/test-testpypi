@@ -1,2 +1,0 @@
-#!/usr/bin/env bash
-python -c "import eshgham" || exit 1
