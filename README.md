@@ -21,8 +21,8 @@ ESHGHAM is a little command line utility to check on your scheduled workflows.
 
 Here's what it looks like in practice:
 
-![The command ghadash config.yaml tells if your GitHub actions are inactive or
-failing](ghadash.gif)
+![The command eshgham config.yaml tells if your GitHub actions are inactive or
+failing](eshgham.gif)
 
 When workflows are failing or inactive, the summary ends with links for failing
 or inactive workflows. For failing workflows, this will link to a report of the
