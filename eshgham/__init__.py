@@ -15,7 +15,7 @@ from colorama import Fore
 __all__ = [
     "Status", "Result", "Outputter", "JSONOutputter", "ColorOutputter",
     "Harness", "get_workflow_result" "attempt_to_reactivate" "get_token",
-    "make_parser", "main"
+    "make_parser", "main", "make_json_ready"
 ]
 
 from .version import short_version
@@ -225,20 +225,25 @@ class Harness:
         return sorted_results
 
 
+def make_json_ready(grouped_results):
+    def workflow_info(workflow):
+        return {
+            'repo': workflow.repo,
+            'workflow_name': workflow.workflow_name,
+            'url': workflow.output_url,
+        }
+
+    json_ready = {
+        status.name: [workflow_info(w) for w in workflows]
+        for status, workflows in grouped_results.items()
+    }
+    return json_ready
+
+
 class JSONOutputter(Outputter):
     """Outputter for JSON output"""
     def with_sorted_results(self, sorted_results):
-        def workflow_info(workflow):
-            return {
-                'repo': workflow.repo,
-                'workflow_name': workflow.workflow_name,
-                'url': workflow.output_url,
-            }
-
-        json_ready = {
-            status.name: [workflow_info(w) for w in workflows]
-            for status, workflows in sorted_results.items()
-        }
+        json_ready = make_json_ready(sorted_results)
         print(json.dumps(json_ready))
 
 
