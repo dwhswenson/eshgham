@@ -89,12 +89,19 @@ def get_token(arg_token, workflow_dict):
     # order of precedence (first listed trumps anything below)
     # 1. CLI argument
     # 2. yaml config
+    # 3. File ~/.githubtoken
     # 3. env var GITHUB_TOKEN
     token = None
     if 'token' in workflow_dict:
         token = workflow_dict.pop('token')
     if arg_token:
         token = arg_token
+    if not token:
+        token_file = os.path.expanduser("~/.githubtoken")
+        if os.path.exists(token_file):
+            with open(token_file) as file:
+                token = file.read().strip()
+
     if not token:
         token = os.environ.get("GITHUB_TOKEN")
     if not token:
