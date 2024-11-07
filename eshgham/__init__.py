@@ -24,6 +24,7 @@ class Status(enum.Enum):
     OK = 0
     INACTIVATED = 2
     FAILED = 1
+    NO_SCHEDULED_RUNS = -1
 
 
 class Result(typing.NamedTuple):
@@ -66,11 +67,18 @@ def get_workflow_result(
         status = Status.INACTIVATED
         last_scheduled_run = None
     else:
-        last_scheduled_run = next(iter(workflow.get_runs(event='schedule')))
-        if last_scheduled_run.conclusion != "success":
-            status = Status.FAILED
+        try:
+            last_scheduled_run = next(iter(
+                workflow.get_runs(event='schedule')
+            ))
+        except StopIteration:
+            last_scheduled_run = None
+            status = Status.NO_SCHEDULED_RUNS
         else:
-            status = Status.OK
+            if last_scheduled_run.conclusion != "success":
+                status = Status.FAILED
+            else:
+                status = Status.OK
 
     return Result(
         repo=repo.full_name,
@@ -254,7 +262,8 @@ class ColorOutputter(Outputter):
         color = {
             Status.OK: Fore.GREEN,
             Status.INACTIVATED: Fore.YELLOW,
-            Status.FAILED: Fore.RED
+            Status.FAILED: Fore.RED,
+            Status.NO_SCHEDULED_RUNS: Fore.RED,
         }[status]
         return f"{color}{text}{Fore.RESET}"
 
@@ -262,23 +271,29 @@ class ColorOutputter(Outputter):
         text = {
             Status.OK: "OK",
             Status.INACTIVATED: "INACTIVE",
-            Status.FAILED: "FAIL"
+            Status.FAILED: "FAIL",
+            Status.NO_SCHEDULED_RUNS: "ERROR"
         }[result.status]
         stylized = self._wrap_status_color(text, result.status)
         print(f"{result.repo}: {result.workflow_name}: {stylized}")
 
     def with_sorted_results(self, sorted_results):
-        if inactives := sorted_results[Status.INACTIVATED]:
+        if inactives := sorted_results.get(Status.INACTIVATED):
             print("\nLINKS TO INACTIVE WORKFLOWS")
             for result in inactives:
                 print(f"* {result.repo}:{result.workflow_name} page:\n"
                       f"{result.output_url}")
 
-        if failures := sorted_results[Status.FAILED]:
+        if failures := sorted_results.get(Status.FAILED):
             print("\nLINKS TO FAILED RUNS")
             for result in failures:
                 print(f"* {result.repo}:{result.workflow_name} failure: "
                       f"\n  {result.output_url}")
+
+        if errors := sorted_results.get(Status.NO_SCHEDULED_RUNS):
+            print("\nSCHEDULED RUNS NOT FOUND")
+            for result in errors:
+                print(f"* {result.repo}:{result.workflow_name}")
 
         total = sum(len(ll) for ll in sorted_results.values())
 
