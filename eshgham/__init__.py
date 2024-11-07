@@ -15,7 +15,7 @@ from colorama import Fore
 __all__ = [
     "Status", "Result", "Outputter", "JSONOutputter", "ColorOutputter",
     "Harness", "get_workflow_result" "attempt_to_reactivate" "get_token",
-    "make_parser", "main"
+    "make_parser", "main", "make_json_ready"
 ]
 
 from .version import short_version
@@ -89,12 +89,19 @@ def get_token(arg_token, workflow_dict):
     # order of precedence (first listed trumps anything below)
     # 1. CLI argument
     # 2. yaml config
+    # 3. File ~/.githubtoken
     # 3. env var GITHUB_TOKEN
     token = None
     if 'token' in workflow_dict:
         token = workflow_dict.pop('token')
     if arg_token:
         token = arg_token
+    if not token:
+        token_file = os.path.expanduser("~/.githubtoken")
+        if os.path.exists(token_file):
+            with open(token_file) as file:
+                token = file.read().strip()
+
     if not token:
         token = os.environ.get("GITHUB_TOKEN")
     if not token:
@@ -218,20 +225,25 @@ class Harness:
         return sorted_results
 
 
+def make_json_ready(grouped_results):
+    def workflow_info(workflow):
+        return {
+            'repo': workflow.repo,
+            'workflow_name': workflow.workflow_name,
+            'url': workflow.output_url,
+        }
+
+    json_ready = {
+        status.name: [workflow_info(w) for w in workflows]
+        for status, workflows in grouped_results.items()
+    }
+    return json_ready
+
+
 class JSONOutputter(Outputter):
     """Outputter for JSON output"""
     def with_sorted_results(self, sorted_results):
-        def workflow_info(workflow):
-            return {
-                'repo': workflow.repo,
-                'workflow_name': workflow.workflow_name,
-                'url': workflow.output_url,
-            }
-
-        json_ready = {
-            status.name: [workflow_info(w) for w in workflows]
-            for status, workflows in sorted_results.items()
-        }
+        json_ready = make_json_ready(sorted_results)
         print(json.dumps(json_ready))
 
 
