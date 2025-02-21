@@ -24,6 +24,7 @@ class Status(enum.Enum):
     OK = 0
     INACTIVATED = 2
     FAILED = 1
+    NO_SCHEDULED_RUNS = 3
 
 
 class Result(typing.NamedTuple):
@@ -36,7 +37,7 @@ class Result(typing.NamedTuple):
     @property
     def output_url(self):
         """URL for last run. For inactive workflow, URL of workflow"""
-        if self.status is not Status.INACTIVATED:
+        if self.status in {Status.FAILED, Status.OK}:
             return self.last_scheduled_run.html_url
 
         # unfortuately, we kind of have to guess here; the URL we want isn't
@@ -66,11 +67,16 @@ def get_workflow_result(
         status = Status.INACTIVATED
         last_scheduled_run = None
     else:
-        last_scheduled_run = next(iter(workflow.get_runs(event='schedule')))
-        if last_scheduled_run.conclusion != "success":
-            status = Status.FAILED
+        try:
+            last_scheduled_run = next(iter(workflow.get_runs(event='schedule')))
+        except StopIteration:
+            last_scheduled_run = None
+            status = Status.NO_SCHEDULED_RUNS
         else:
-            status = Status.OK
+            if last_scheduled_run.conclusion != "success":
+                status = Status.FAILED
+            else:
+                status = Status.OK
 
     return Result(
         repo=repo.full_name,
@@ -217,7 +223,7 @@ class Harness:
             results.extend(repo_results)
         self.out.after_all(results)
         sorted_results = {Status.OK: [], Status.INACTIVATED: [],
-                          Status.FAILED: []}
+                          Status.FAILED: [], Status.NO_SCHEDULED_RUNS: []}
         for res in results:
             sorted_results[res.status].append(res)
 
@@ -254,7 +260,8 @@ class ColorOutputter(Outputter):
         color = {
             Status.OK: Fore.GREEN,
             Status.INACTIVATED: Fore.YELLOW,
-            Status.FAILED: Fore.RED
+            Status.FAILED: Fore.RED,
+            Status.NO_SCHEDULED_RUNS: Fore.YELLOW,
         }[status]
         return f"{color}{text}{Fore.RESET}"
 
@@ -262,7 +269,8 @@ class ColorOutputter(Outputter):
         text = {
             Status.OK: "OK",
             Status.INACTIVATED: "INACTIVE",
-            Status.FAILED: "FAIL"
+            Status.FAILED: "FAIL",
+            Status.NO_SCHEDULED_RUNS: "NO SCHEDULED RUNS"
         }[result.status]
         stylized = self._wrap_status_color(text, result.status)
         print(f"{result.repo}: {result.workflow_name}: {stylized}")
