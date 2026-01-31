@@ -2,6 +2,7 @@ import json
 import sys
 from dataclasses import dataclass
 
+import github
 import pytest
 import yaml
 
@@ -16,20 +17,29 @@ class FakeRun:
 
 
 class FakeWorkflow:
-    def __init__(self, repo_full_name, filename, *, state, runs,
-                 enable_succeeds=False):
+    def __init__(
+        self,
+        repo_full_name,
+        filename,
+        *,
+        state,
+        runs,
+        enable_behavior=False,
+    ):
         self.state = state
         self.path = f".github/workflows/{filename}"
         self.html_url = f"https://github.com/{repo_full_name}/blob/main/{self.path}"
         self._runs = runs
-        self._enable_succeeds = enable_succeeds
+        self._enable_behavior = enable_behavior
 
     def get_runs(self, event):
         assert event == "schedule"
         return iter(self._runs)
 
     def enable(self):
-        return self._enable_succeeds
+        if isinstance(self._enable_behavior, Exception):
+            raise self._enable_behavior
+        return self._enable_behavior
 
 
 class FakeRepo:
@@ -162,4 +172,102 @@ def test_main_all_ok_returns_zero(tmp_path, monkeypatch, capsys):
     assert payload[Status.FAILED.name] == []
     assert payload[Status.INACTIVATED.name] == []
     assert payload[Status.NO_SCHEDULED_RUNS.name] == []
+    assert captured.err == ""
+
+
+def test_main_reenabled_workflow_returns_zero(tmp_path, monkeypatch, capsys):
+    repo_full_name = "owner/repo"
+    workflows = {
+        "docs.yml": FakeWorkflow(
+            repo_full_name,
+            "docs.yml",
+            state="inactive",
+            runs=[],
+            enable_behavior=True,
+        ),
+    }
+    fake_repo = FakeRepo(repo_full_name, workflows)
+
+    fake_repos = {repo_full_name: fake_repo}
+
+    def fake_github_factory(token):
+        return FakeGithub(token, fake_repos)
+
+    monkeypatch.setattr(eshgham.github, "Github", fake_github_factory)
+
+    workflow_yaml = {repo_full_name: list(workflows.keys())}
+    workflow_file = tmp_path / "workflows.yml"
+    workflow_file.write_text(yaml.safe_dump(workflow_yaml))
+
+    argv = [
+        "eshgham",
+        str(workflow_file),
+        "--token",
+        "cli-token",
+        "--json",
+    ]
+
+    monkeypatch.setattr(sys, "argv", argv)
+
+    exit_code = eshgham.main()
+    captured = capsys.readouterr()
+
+    assert exit_code == 0
+
+    payload = json.loads(captured.out)
+    assert payload[Status.REENABLED.name][0]["url"].endswith("docs.yml")
+    assert payload[Status.INACTIVATED.name] == []
+    assert payload[Status.FAILED.name] == []
+    assert captured.err == ""
+
+
+def test_main_enable_exception_marks_inactivated(tmp_path, monkeypatch, capsys):
+    repo_full_name = "owner/repo"
+    workflows = {
+        "docs.yml": FakeWorkflow(
+            repo_full_name,
+            "docs.yml",
+            state="inactive",
+            runs=[],
+            enable_behavior=github.GithubException(
+                403,
+                {"message": "rate limited"},
+                None,
+            ),
+        ),
+    }
+    fake_repo = FakeRepo(repo_full_name, workflows)
+
+    fake_repos = {repo_full_name: fake_repo}
+
+    def fake_github_factory(token):
+        return FakeGithub(token, fake_repos)
+
+    monkeypatch.setattr(eshgham.github, "Github", fake_github_factory)
+
+    workflow_yaml = {repo_full_name: list(workflows.keys())}
+    workflow_file = tmp_path / "workflows.yml"
+    workflow_file.write_text(yaml.safe_dump(workflow_yaml))
+
+    argv = [
+        "eshgham",
+        str(workflow_file),
+        "--token",
+        "cli-token",
+        "--json",
+        "--exit-code",
+        "7",
+    ]
+
+    monkeypatch.setattr(sys, "argv", argv)
+
+    with pytest.warns(UserWarning, match="Unable to re-enable workflow docs.yml"):
+        exit_code = eshgham.main()
+    captured = capsys.readouterr()
+
+    assert exit_code == 7
+
+    payload = json.loads(captured.out)
+    assert payload[Status.INACTIVATED.name][0]["url"].endswith("docs.yml")
+    assert payload[Status.REENABLED.name] == []
     assert captured.err == ""

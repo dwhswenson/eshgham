@@ -6,28 +6,31 @@ from eshgham import Status, get_token, get_workflow_result
 
 
 @pytest.mark.parametrize(
-    "state,runs,status",
+    "state,runs,enable_result,status",
     [
-        ("inactive", [], Status.INACTIVATED),
-        ("active", [], Status.NO_SCHEDULED_RUNS),
+        ("inactive", [], False, Status.INACTIVATED),
+        ("inactive", [], True, Status.REENABLED),
+        ("active", [], False, Status.NO_SCHEDULED_RUNS),
         (
             "active",
             [SimpleNamespace(conclusion="failure", html_url="https://runs/fail")],
+            False,
             Status.FAILED,
         ),
         (
             "active",
             [SimpleNamespace(conclusion="success", html_url="https://runs/success")],
+            False,
             Status.OK,
         ),
     ],
 )
-def test_get_workflow_result(state, runs, status):
+def test_get_workflow_result(state, runs, enable_result, status):
     workflow = SimpleNamespace(
         state=state,
         path=".github/workflows/ci.yml",
         html_url="https://github.com/owner/repo/blob/main/.github/workflows/ci.yml",
-        enable=lambda: False,
+        enable=lambda: enable_result,
     )
 
     def get_runs(event):
