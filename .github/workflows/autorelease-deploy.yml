@@ -2,6 +2,7 @@
 # Update by updating Autorelease and running `autorelease vendor actions`
 name: "Autorelease Deploy"
 on:
+  workflow_dispatch:
   release:
     types: [published]
 
