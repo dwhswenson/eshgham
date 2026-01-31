@@ -71,7 +71,7 @@ def get_workflow_result(repo: github.Repository.Repository, workflow_name: str):
     if workflow.state != "active":
         try:
             success = workflow.enable()
-            status = Status.REENABLED
+
         except github.GithubException as exc:
             warnings.warn(
                 f"Unable to re-enable workflow {workflow_name}: {exc}",
@@ -175,7 +175,7 @@ def make_parser():
             "'FAILED', with a list of workflows as values. Each workflow "
             "has the repository name, the workflow name, and a URL. For "
             "passing/failing workflows, this URL points to the last run. "
-            "For inactive workflows, the URL points to the workflow itself."
+            "For inactive and re-enabled workflows, the URL points to the workflow itself."
         ),
     )
     parser.add_argument(
