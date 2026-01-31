@@ -25,47 +25,50 @@ def get_git_version():
     Apparently someone got this from numpy's setup.py. It has since been
     modified a few times.
     """
+
     # Return the git revision as a string
     # copied from numpy setup.py
     def _minimal_ext_cmd(cmd):
         # construct minimal environment
         env = {}
-        for k in ['SYSTEMROOT', 'PATH']:
+        for k in ["SYSTEMROOT", "PATH"]:
             v = os.environ.get(k)
             if v is not None:
                 env[k] = v
         # LANGUAGE is used on win32
-        env['LANGUAGE'] = 'C'
-        env['LANG'] = 'C'
-        env['LC_ALL'] = 'C'
-        with open(os.devnull, 'w') as err_out:
-            out = subprocess.Popen(cmd,
-                                   stdout=subprocess.PIPE,
-                                   stderr=err_out, # maybe debug later?
-                                   env=env).communicate()[0]
+        env["LANGUAGE"] = "C"
+        env["LANG"] = "C"
+        env["LC_ALL"] = "C"
+        with open(os.devnull, "w") as err_out:
+            out = subprocess.Popen(
+                cmd,
+                stdout=subprocess.PIPE,
+                stderr=err_out,  # maybe debug later?
+                env=env,
+            ).communicate()[0]
         return out
 
     try:
         git_dir = os.path.dirname(os.path.realpath(__file__))
-        out = _minimal_ext_cmd(['git', '-C', git_dir, 'rev-parse', 'HEAD'])
-        GIT_REVISION = out.strip().decode('ascii')
+        out = _minimal_ext_cmd(["git", "-C", git_dir, "rev-parse", "HEAD"])
+        GIT_REVISION = out.strip().decode("ascii")
     except OSError:
-        GIT_REVISION = 'Unknown'
+        GIT_REVISION = "Unknown"
 
     return GIT_REVISION
+
 
 def _seek_parent_dirs_for_file(filename):
     rel_directory = None
     my_dir = os.path.dirname(os.path.abspath(__file__))
     rel_directory_arr = []
     while not rel_directory:
-        expected_dir = os.path.join(*rel_directory_arr) \
-                if rel_directory_arr else '.'
+        expected_dir = os.path.join(*rel_directory_arr) if rel_directory_arr else "."
         expected = os.path.join(expected_dir, filename)
         if os.path.isfile(os.path.normpath(expected)):
             rel_directory = expected_dir
         else:
-            rel_directory_arr.append('..')
+            rel_directory_arr.append("..")
 
         if len(rel_directory_arr) > len(my_dir.split(os.sep)):
             rel_directory_arr = []
@@ -77,9 +80,9 @@ def _seek_parent_dirs_for_file(filename):
 def _find_rel_path_for_file(depth, filename):
     rel_directory = None
     if depth == 0:
-        rel_directory = '.'
+        rel_directory = "."
     elif depth >= 1:
-        rel_directory = os.sep.join(['..'] * depth)
+        rel_directory = os.sep.join([".."] * depth)
     else:
         rel_directory = _seek_parent_dirs_for_file(filename)
 
@@ -118,7 +121,7 @@ def get_setup_version(default_version, directory, filename="setup.cfg"):
     version = default_version
     conf = get_setup_cfg(directory, filename)
     try:
-        version = conf.get('metadata', 'version')
+        version = conf.get("metadata", "version")
     except (NoSectionError, NoOptionError):
         pass  # version (or metadata) not defined in setup.cfg
     except AttributeError:
@@ -126,10 +129,9 @@ def get_setup_version(default_version, directory, filename="setup.cfg"):
     return version
 
 
-short_version = get_setup_version(_installed_version,
-                                  directory=_version_setup_depth)
+short_version = get_setup_version(_installed_version, directory=_version_setup_depth)
 _git_version = get_git_version()
-_is_repo = (_git_version != '' and _git_version != "Unknown")
+_is_repo = _git_version != "" and _git_version != "Unknown"
 
 if _is_repo:
     git_hash = _git_version
@@ -137,5 +139,5 @@ if _is_repo:
     version = full_version
 else:
     git_hash = "Unknown"
-    full_version = short_version + "+g" + _installed_git_hash[:7] + '.install'
+    full_version = short_version + "+g" + _installed_git_hash[:7] + ".install"
     version = short_version
