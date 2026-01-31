@@ -27,6 +27,7 @@ def test_get_workflow_result(state, runs, status):
         state=state,
         path=".github/workflows/ci.yml",
         html_url="https://github.com/owner/repo/blob/main/.github/workflows/ci.yml",
+        enable=lambda: False,
     )
 
     def get_runs(event):

@@ -4,9 +4,8 @@ import argparse
 import enum
 import json
 import os
-import re
-import sys
 import typing
+import warnings
 
 import github
 import yaml
@@ -33,8 +32,9 @@ from .version import short_version
 class Status(enum.Enum):
     OK = 0
     INACTIVATED = 2
+    REENABLED = 3
     FAILED = 1
-    NO_SCHEDULED_RUNS = 3
+    NO_SCHEDULED_RUNS = -1
 
 
 class Result(typing.NamedTuple):
@@ -69,7 +69,20 @@ def get_workflow_result(repo: github.Repository.Repository, workflow_name: str):
     """Create :class:`.Result` for a single workflow."""
     workflow = repo.get_workflow(workflow_name)
     if workflow.state != "active":
-        status = Status.INACTIVATED
+        try:
+            success = workflow.enable()
+            status = Status.REENABLED
+        except github.GithubException as exc:
+            warnings.warn(
+                f"Unable to re-enable workflow {workflow_name}: {exc}",
+            )
+            success = False
+
+        if success:
+            status = Status.REENABLED
+        else:
+            status = Status.INACTIVATED
+
         last_scheduled_run = None
     else:
         try:
@@ -158,8 +171,8 @@ def make_parser():
         default="color",
         help=(
             "Output as JSON instead of outputting to screen. The JSON "
-            "object has keys 'OK', 'INACTIVATED', and 'FAILED', with a "
-            "list of workflows as values. Each workflow "
+            "object has keys 'OK', 'INACTIVATED', 'REENABLED', and "
+            "'FAILED', with a list of workflows as values. Each workflow "
             "has the repository name, the workflow name, and a URL. For "
             "passing/failing workflows, this URL points to the last run. "
             "For inactive workflows, the URL points to the workflow itself."
@@ -235,6 +248,7 @@ class Harness:
         sorted_results = {
             Status.OK: [],
             Status.INACTIVATED: [],
+            Status.REENABLED: [],
             Status.FAILED: [],
             Status.NO_SCHEDULED_RUNS: [],
         }
@@ -276,6 +290,7 @@ class ColorOutputter(Outputter):
         color = {
             Status.OK: Fore.GREEN,
             Status.INACTIVATED: Fore.YELLOW,
+            Status.REENABLED: Fore.GREEN,
             Status.FAILED: Fore.RED,
             Status.NO_SCHEDULED_RUNS: Fore.YELLOW,
         }[status]
@@ -285,6 +300,7 @@ class ColorOutputter(Outputter):
         text = {
             Status.OK: "OK",
             Status.INACTIVATED: "INACTIVE",
+            Status.REENABLED: "REENABLED",
             Status.FAILED: "FAIL",
             Status.NO_SCHEDULED_RUNS: "NO SCHEDULED RUNS",
         }[result.status]
@@ -341,8 +357,6 @@ def main() -> int:
 
     runner = Harness(outputter)
     sorted_results = runner(gh, workflow_dict)
-
-    # TODO: try to reactivate here?
 
     if sorted_results[Status.FAILED] or sorted_results[Status.INACTIVATED]:
         return args.exit_code

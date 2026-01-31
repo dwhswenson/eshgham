@@ -16,15 +16,20 @@ class FakeRun:
 
 
 class FakeWorkflow:
-    def __init__(self, repo_full_name, filename, *, state, runs):
+    def __init__(self, repo_full_name, filename, *, state, runs,
+                 enable_succeeds=False):
         self.state = state
         self.path = f".github/workflows/{filename}"
         self.html_url = f"https://github.com/{repo_full_name}/blob/main/{self.path}"
         self._runs = runs
+        self._enable_succeeds = enable_succeeds
 
     def get_runs(self, event):
         assert event == "schedule"
         return iter(self._runs)
+
+    def enable(self):
+        return self._enable_succeeds
 
 
 class FakeRepo:
