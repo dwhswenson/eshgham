@@ -60,7 +60,7 @@ class FakeGithub:
         return self._repos[repo_name]
 
 
-@pytest.mark.parametrize("output_format", ["json", "color"])
+@pytest.mark.parametrize("output_format", ["json", "color", "quiet"])
 def test_main(output_format, tmp_path, monkeypatch, capsys):
     repo_full_name = "owner/repo"
     workflows = {
@@ -106,6 +106,8 @@ def test_main(output_format, tmp_path, monkeypatch, capsys):
     ]
     if output_format == "json":
         argv.append("--json")
+    elif output_format == "quiet":
+        argv.append("--quiet")
 
     monkeypatch.setattr(sys, "argv", argv)
 
@@ -119,13 +121,15 @@ def test_main(output_format, tmp_path, monkeypatch, capsys):
         assert payload[Status.OK.name][0]["url"] == "https://runs/ci"
         assert payload[Status.FAILED.name][0]["url"] == "https://runs/lint"
         assert payload[Status.INACTIVATED.name][0]["url"].endswith("docs.yml")
-    else:
+    elif output_format == "color":
         out = captured.out
         assert f"{repo_full_name}: ci.yml:" in out
         assert f"{repo_full_name}: lint.yml:" in out
         assert "LINKS TO INACTIVE WORKFLOWS" in out
         assert "LINKS TO FAILED RUNS" in out
         assert "Checked 3 workflows." in out
+    else:
+        assert captured.out == ""
     assert captured.err == ""
 
 

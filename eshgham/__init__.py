@@ -17,6 +17,7 @@ __all__ = [
     "Outputter",
     "JSONOutputter",
     "ColorOutputter",
+    "NullOutputter",
     "Harness",
     "get_workflow_result",
     "attempt_to_reactivate",
@@ -177,6 +178,13 @@ def make_parser():
             "passing/failing workflows, this URL points to the last run. "
             "For inactive and re-enabled workflows, the URL points to the workflow itself."
         ),
+    )
+    parser.add_argument(
+        "--quiet",
+        action="store_const",
+        dest="runtype",
+        const="quiet",
+        help="Suppress all output.",
     )
     parser.add_argument(
         "--exit-code",
@@ -340,6 +348,10 @@ class ColorOutputter(Outputter):
         )
 
 
+class NullOutputter(Outputter):
+    """Outputter that emits no output; useful for programmatic use of the harness."""
+
+
 def main() -> int:
     """Returns the exit code"""
     parser = make_parser()
@@ -353,6 +365,7 @@ def main() -> int:
     outputter = {
         "json": JSONOutputter(),
         "color": ColorOutputter(),
+        "quiet": NullOutputter(),
     }[args.runtype]
 
     runner = Harness(outputter)
