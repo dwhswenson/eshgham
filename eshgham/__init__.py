@@ -1,6 +1,7 @@
 #!/usr/bin/env python
 
 import argparse
+import asyncio
 import enum
 import json
 import os
@@ -27,6 +28,10 @@ __all__ = [
 ]
 
 from .version import short_version
+
+
+async def _call_in_thread(func, /, *args, **kwargs):
+    return await asyncio.to_thread(func, *args, **kwargs)
 
 
 class Status(enum.Enum):
@@ -226,24 +231,8 @@ class Harness:
         """ """
         self.out.before_any()
 
-        results = []
+        results = asyncio.run(self._collect_results(gh, workflow_dict))
 
-        # TODO: kick off result gathering using async; then report in serial
-
-        for repo_name, workflow_list in workflow_dict.items():
-            self.out.before_repo(repo_name, workflow_list)
-
-            repo = gh.get_repo(repo_name)
-            repo_results = []
-
-            for workflow_name in workflow_list:
-                self.out.before_workflow(repo_name, workflow_name)
-                result = get_workflow_result(repo, workflow_name)
-                self.out.after_workflow(result)
-                repo_results.append(result)
-
-            self.out.after_repo(repo_results)
-            results.extend(repo_results)
         self.out.after_all(results)
         sorted_results = {
             Status.OK: [],
@@ -257,6 +246,41 @@ class Harness:
 
         self.out.with_sorted_results(sorted_results)
         return sorted_results
+
+    async def _collect_results(
+        self, gh: github.Github, workflow_dict: dict[str, list[str]]
+    ) -> list[Result]:
+        results: list[Result] = []
+        for repo_name, workflow_list in workflow_dict.items():
+            repo_results = await self._collect_repo(gh, repo_name, workflow_list)
+            results.extend(repo_results)
+        return results
+
+    async def _collect_repo(
+        self,
+        gh: github.Github,
+        repo_name: str,
+        workflow_list: list[str],
+    ) -> list[Result]:
+        self.out.before_repo(repo_name, workflow_list)
+        repo = await _call_in_thread(gh.get_repo, repo_name)
+
+        tasks = []
+        for workflow_name in workflow_list:
+            self.out.before_workflow(repo_name, workflow_name)
+            task = asyncio.create_task(
+                _call_in_thread(get_workflow_result, repo, workflow_name)
+            )
+            tasks.append(task)
+
+        repo_results: list[Result] = []
+        if tasks:
+            results = await asyncio.gather(*tasks)
+            for result in results:
+                self.out.after_workflow(result)
+                repo_results.append(result)
+        self.out.after_repo(repo_results)
+        return repo_results
 
 
 def make_json_ready(grouped_results):
